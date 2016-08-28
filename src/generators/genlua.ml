@@ -301,9 +301,9 @@ let multi_value_tmp_names meta =
 		List.map (fun (_, expr) ->
 		    match expr with
 		    | (EConst(String(name)),_)-> name
-		    | _-> raise (Failure "@:MultiReturn metadata must be EObjectDecl of String constants")
+		    | _-> raise (Failure "@multiReturn metadata must be EObjectDecl of String constants")
 		) vals
-	| _-> raise (Failure "@:MultiReturn metadata must be single EObjectDecl of String constants")
+	| _-> raise (Failure "@:multiReturn metadata must be single EObjectDecl of String constants")
 
 let multi_value_tmp_lookup meta field_name =
     let (_,els,_) = Meta.get Meta.MultiReturn meta in
@@ -312,14 +312,14 @@ let multi_value_tmp_lookup meta field_name =
 		let (_, expr) = List.find (fun (name,_) ->  name = field_name ) vals in
 		( match expr with
 		    | (EConst(String(name)),_)-> name
-		    | _-> raise (Failure "@:MultiReturn metadata must be EObjectDecl of String constants")
+		    | _-> raise (Failure "@:multiReturn metadata must be EObjectDecl of String constants")
 		)
-	| _-> raise (Failure "@:MultiReturn metadata must be single EObjectDecl of String constants")
+	| _-> raise (Failure "@:multiReturn metadata must be single EObjectDecl of String constants")
 
 let rec multi_find_expr_idx lst field_name x = begin
     match lst with
 	| [] ->raise (Failure "Not Found");
-	| cf::t  -> if cf.cf_name = field_name then x else 1 + (multi_find_expr_idx lst field_name x);
+	| cf::t  -> if cf.cf_name = field_name then x else 1 + (multi_find_expr_idx t field_name x);
 end
 
 let multi_value_idx_lookup_expr ctx e field_name =
@@ -638,7 +638,7 @@ and gen_expr ?(local=true) ctx e = begin
 				match e.eexpr with
 				| TCall _ when is_multireturn ctx e ->
 				    if Meta.has Meta.MultiReturn v.v_meta then
-					raise (Failure "@:MultiReturn metadata must not be set on variables receiving multiple returns");
+					raise (Failure "@:multiReturn metadata must not be set on variables receiving multiple returns");
 				    v.v_meta <- [(Meta.MultiReturn, multi_value_meta ctx e, null_pos)];
 				    let local_tmp_names = multi_value_tmp_names v.v_meta in
 				    v.v_name <- String.concat ", " local_tmp_names;
