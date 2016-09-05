@@ -249,7 +249,7 @@ let mk_lua_code com code args t pos =
 	mk (TCall (lua_local, code_const :: args)) t pos
 
 (* create a multi-return boxing call for given expr *)
-let mk_mr_box ctx e = 
+let mk_mr_box ctx e =
 	let s_fields =
 		match follow e.etype with
 		| TInst (c,_) ->
@@ -525,7 +525,12 @@ and gen_expr ?(local=true) ctx e = begin
 		spr ctx "})";
 	| TField ({eexpr = TLocal v}, f) when Meta.has Meta.MultiReturn v.v_meta ->
 		(* field of a multireturn local var is actually just a local var *)
-		spr ctx ((ident v.v_name) ^ "_" ^ (field_name f));
+		let (_, args, pos) =  Meta.get (Meta.Custom ":lua_mr_id") v.v_meta  in
+		(match args with
+		| [(EConst(String(id)), _)] ->
+				spr ctx (id ^ "_" ^ (ident v.v_name) ^ "_" ^ (field_name f));
+		| _ ->
+				assert false);
 	| TField (x,f) ->
 		gen_value ctx x;
 		let name = field_name f in
@@ -603,29 +608,32 @@ and gen_expr ?(local=true) ctx e = begin
 
 				| _ when Meta.has Meta.MultiReturn v.v_meta ->
 					(* multi-return var is generated as several vars for unpacking *)
-					let name = ident v.v_name in
-					let names =
-						match follow v.v_type with
-						| TInst (c, _) ->
-							List.map (fun f -> name ^ "_" ^ f.cf_name) c.cl_ordered_fields
-						| _ ->
-							assert false
-					in
-					spr ctx "local ";
-					spr ctx (String.concat ", " names);
-					spr ctx " = ";
-					gen_value ctx e;
-					semicolon ctx
+				    let id = temp ctx in
+				    let temp_expr = (EConst(String(id)), null_pos) in
+				    v.v_meta <- (Meta.Custom ":lua_mr_id", [temp_expr], v.v_pos) :: v.v_meta;
+				    let name = ident v.v_name in
+				    let names =
+						    match follow v.v_type with
+						    | TInst (c, _) ->
+										    List.map (fun f -> id ^ "_" ^name ^ "_" ^ f.cf_name) c.cl_ordered_fields
+						    | _ ->
+								    assert false
+				    in
+				    spr ctx "local ";
+				    spr ctx (String.concat ", " names);
+				    spr ctx " = ";
+				    gen_value ctx e;
+				    semicolon ctx
 
 				| _ ->
 				    if local then
-					spr ctx "local ";
+						spr ctx "local ";
 				    spr ctx (ident v.v_name);
 				    spr ctx " = ";
 
 					(*
 						if it was a multi-return var but it was used as a value itself,
-						we have to box it in an object conforming to a multi-return extern class 
+						we have to box it in an object conforming to a multi-return extern class
 					*)
 					let is_boxed_multireturn = Meta.has (Meta.Custom ":lua_mr_box") v.v_meta in
 					let e = if is_boxed_multireturn then mk_mr_box ctx e else e in
@@ -1750,7 +1758,7 @@ let alloc_ctx com =
 let transform_multireturn ctx = function
 	| TClassDecl c ->
 		let transform_field f =
-			match f.cf_expr with 
+			match f.cf_expr with
 			| Some e ->
 				let rec loop e =
 					let is_multireturn t =
@@ -1788,13 +1796,13 @@ let transform_multireturn ctx = function
 					*)
 					| TLocal v when Meta.has Meta.MultiReturn v.v_meta ->
 						v.v_meta <- List.filter (fun (m,_,_) -> m <> Meta.MultiReturn) v.v_meta;
-						v.v_meta <- (Meta.Custom ":lua_mr_box",[],v.v_pos) :: v.v_meta;
+						v.v_meta <- (Meta.Custom ":lua_mr_box", [], v.v_pos) :: v.v_meta;
 						e
 
 					| _ ->
-						Type.map_expr loop e 
+						Type.map_expr loop e
 				in
-				f.cf_expr <- Some (loop e); 
+				f.cf_expr <- Some (loop e);
 			| _ -> ()
 		in
 		List.iter transform_field c.cl_ordered_fields;
