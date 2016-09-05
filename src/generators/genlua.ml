@@ -249,15 +249,17 @@ let mk_lua_code com code args t pos =
 	mk (TCall (lua_local, code_const :: args)) t pos
 
 (* create a multi-return boxing call for given expr *)
-let mk_mr_box com e = 
+let mk_mr_box ctx e = 
 	let s_fields =
 		match follow e.etype with
 		| TInst (c,_) ->
 			String.concat ", " (List.map (fun f -> "\"" ^ f.cf_name ^ "\"") c.cl_ordered_fields)
 		| _ -> assert false
 	in
-	let code = Printf.sprintf "__hx_box_mr({0}, {%s})" s_fields in
-	mk_lua_code com code [e] e.etype e.epos
+	add_feature ctx "use._hx_box_mr";
+	add_feature ctx "use._hx_tbl_pack";
+	let code = Printf.sprintf "_hx_box_mr(_hx_tbl_pack({0}), {%s})" s_fields in
+	mk_lua_code ctx.com code [e] e.etype e.epos
 
 (* create a multi-return select call for given expr and field name *)
 let mk_mr_select com e name =
@@ -626,7 +628,7 @@ and gen_expr ?(local=true) ctx e = begin
 						we have to box it in an object conforming to a multi-return extern class 
 					*)
 					let is_boxed_multireturn = Meta.has (Meta.Custom ":lua_mr_box") v.v_meta in
-					let e = if is_boxed_multireturn then mk_mr_box ctx.com e else e in
+					let e = if is_boxed_multireturn then mk_mr_box ctx e else e in
 				    gen_value ctx e;
 				    semicolon ctx;
 		end
@@ -1774,7 +1776,7 @@ let transform_multireturn ctx = function
 					(* if we found a multi-return call used as a value, box it *)
 					| TCall _ when is_multireturn e.etype ->
 						let e = Type.map_expr loop e in
-						mk_mr_box ctx.com e
+						mk_mr_box ctx e
 
 					(* if we found a field access for a multi-return local - that's fine, because it'll be generated as a local var *)
 					| TField ({ eexpr = TLocal v}, _) when Meta.has Meta.MultiReturn v.v_meta ->
@@ -1891,7 +1893,7 @@ let generate com =
 	List.iter (generate_type_forward ctx) com.types; newline ctx;
 
 	(* Generate some dummy placeholders for utility libs that may be required*)
-	println ctx "local _hx_bind, _hx_bit, _hx_staticToInstance, _hx_funcToField, _hx_maxn, _hx_print, _hx_apply_self";
+	println ctx "local _hx_bind, _hx_bit, _hx_staticToInstance, _hx_funcToField, _hx_maxn, _hx_print, _hx_apply_self, _hx_box_mr, _hx_tbl_pack";
 
 	if has_feature ctx "use._bitop" || has_feature ctx "lua.Boot.clamp" then begin
 	    println ctx "pcall(require, 'bit32') pcall(require, 'bit')";
@@ -1910,8 +1912,6 @@ let generate com =
 
 	List.iter (transform_multireturn ctx) com.types;
 	List.iter (generate_type ctx) com.types;
-
-
 
 	(* If we use haxe Strings, patch Lua's string *)
 	if has_feature ctx "use.string" then begin
@@ -2018,6 +2018,22 @@ let generate com =
 	if has_feature ctx "use._hx_apply_self" then begin
 	    println ctx "_hx_apply_self = function(self, f, ...)";
 	    println ctx "  return self[f](self,...)";
+	    println ctx "end";
+	end;
+
+	if has_feature ctx "use._hx_box_mr" then begin
+	    println ctx "_hx_box_mr = function(x,nt)";
+	    println ctx "   tbl = {}";
+	    println ctx "   for i,v in ipairs(nt) do";
+	    println ctx "     tbl[nt[i]] = x[i]";
+	    println ctx "   end";
+	    println ctx "   return tbl";
+	    println ctx "end";
+	end;
+
+	if has_feature ctx "use._hx_tbl_pack" then begin
+	    println ctx "_hx_tbl_pack = function(...)";
+	    println ctx "  return {n=select('#',...),...}";
 	    println ctx "end";
 	end;
 
