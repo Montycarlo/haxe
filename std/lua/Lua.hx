@@ -53,7 +53,7 @@ extern class Lua {
 		to a non-existent field in the table is assigned. Existing fields may 
 		however be modified. In particular, existing fields may be cleared.
 	**/
-	public static function next<T>(k:Table<Dynamic, T>, ?i : Null<Int>): T;
+	public static function next<K,V>(k:Table<K, V>, ?i : V): NextResult<K,V>;
 
 	/**
 		Receives an argument of any type and converts it to a string in a reasonable 
@@ -146,7 +146,7 @@ extern class Lua {
 	/**
 		Calls a function in protected mode.
 	**/
-	public static function pcall(f:Function, rest:Rest<Dynamic>) : Bool;
+	public static function pcall(f:Function, rest:Rest<Dynamic>) : PCallResult;
 
 	/**
 		Returns `true` if the two values in acceptable indices `v1` and `v2` are 
@@ -160,7 +160,7 @@ extern class Lua {
 		This function is similar to pcall, except that you can set a new error 
 		handler.
 	**/
-	public static function xpcall(f:Function, msgh:Function, rest:Rest<Dynamic> ) : Bool;
+	public static function xpcall(f:Function, msgh:Function, rest:Rest<Dynamic> ) : PCallResult;
 
 	/**
 		Loads the chunk from file filename or from the standard input if no filename 
@@ -187,4 +187,16 @@ abstract CollectGarbageOption(String) {
 	var Step = "step";
 	var SetPause = "setpause";
 	var SetStepMul = "setstepmul";
+}
+
+@:multiReturn
+extern class PCallResult {
+	var status : Bool;
+	var error : String;
+}
+
+@:multiReturn
+extern class NextResult<K,V> {
+	var index : K;
+	var value : V;
 }
