@@ -270,8 +270,11 @@ let mk_mr_select com e name =
 		| _ ->
 			assert false
 	in
-	let code = Printf.sprintf "_G.select(%i, {0})" (i + 1) in
-	mk_lua_code com code [e] e.etype e.epos
+	if i == 0 then
+	    mk_lua_code com "{0}" [e] e.etype e.epos
+	else
+	    let code = Printf.sprintf "_G.select(%i, {0})" (i + 1) in
+	    mk_lua_code com code [e] e.etype e.epos
 
 (* from genphp *)
 let rec is_string_type t =
