@@ -270,7 +270,7 @@ let mk_mr_select com e name =
 		| _ ->
 			assert false
 	in
-	let code = Printf.sprintf "_G.select(%i, {0})" i in
+	let code = Printf.sprintf "_G.select(%i, {0})" (i + 1) in
 	mk_lua_code com code [e] e.etype e.epos
 
 (* from genphp *)
@@ -2048,11 +2048,11 @@ let generate com =
 
 	if has_feature ctx "use._hx_box_mr" then begin
 	    println ctx "_hx_box_mr = function(x,nt)";
-	    println ctx "   tbl = {}";
+	    println ctx "   res = _hx_o({__fields__={}})";
 	    println ctx "   for i,v in ipairs(nt) do";
-	    println ctx "     tbl[nt[i]] = x[i]";
+	    println ctx "     res[v] = x[i]";
 	    println ctx "   end";
-	    println ctx "   return tbl";
+	    println ctx "   return res";
 	    println ctx "end";
 	end;
 
