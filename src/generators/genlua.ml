@@ -1360,6 +1360,22 @@ and has_continue e =
     with Exit ->
 	true
 
+let check_multireturn ctx c =
+    match c with
+    | _ when Meta.has Meta.MultiReturn c.cl_meta ->
+	    if not c.cl_extern then
+		error "MultiReturns must be externs" c.cl_pos
+		else if (match c.cl_kind with KExtension _ -> true | _ -> false) then
+		    error "MultiReturns must not extend another class" c.cl_pos
+	    else if List.length c.cl_ordered_statics > 0 then
+		error "MultiReturns must not contain static fields" c.cl_pos
+		else if (List.exists (fun cf -> match cf.cf_kind with Method _ -> true | _-> false) c.cl_ordered_fields) then
+		    error "MultiReturns must not contain methods" c.cl_pos;
+    | {cl_super = Some(csup,_)} when Meta.has Meta.MultiReturn csup.cl_meta ->
+	    error "Cannot extend a MultiReturn" c.cl_pos
+    | _ -> ()
+
+
 let generate_package_create ctx (p,_) =
 	let rec loop acc = function
 		| [] -> ()
@@ -1696,7 +1712,8 @@ let generate_type ctx = function
 		else if Meta.has Meta.InitPackage c.cl_meta then
 			(match c.cl_path with
 			| ([],_) -> ()
-			| _ -> generate_package_create ctx c.cl_path)
+			| _ -> generate_package_create ctx c.cl_path);
+		check_multireturn ctx c;
 	| TEnumDecl e when e.e_extern ->
 		if Meta.has Meta.LuaRequire e.e_meta && is_directly_used ctx.com e.e_meta then
 		    generate_require ctx e.e_path e.e_meta;
