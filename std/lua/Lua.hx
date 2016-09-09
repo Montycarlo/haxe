@@ -99,7 +99,7 @@ extern class Lua {
 
 		For complete control of how numbers are converted, use `NativeStringTools.format`.
 	**/
-	public static function print(v:Dynamic) : Void;
+	public static function print(v:haxe.extern.Rest<Dynamic>) : Void;
 
 	/**
 		If `n` is a number, returns all arguments after argument number `n`.
@@ -166,12 +166,12 @@ extern class Lua {
 		Loads the chunk from file filename or from the standard input if no filename
 		is given.
 	**/
-	public static function loadfile(filename:String) : Void;
+	public static function loadfile(filename:String) : LoadResult;
 
 	/**
 		Loads the chunk from given string.
 	**/
-	public static function loadstring(code:String) : Void;
+	public static function load(code:haxe.extern.EitherType<String,Void->String>) : LoadResult;
 
 }
 
@@ -206,4 +206,10 @@ extern class PairsResult<K,V> {
 	var next : Table<K,V>->K->NextResult<K,V>;
 	var table : Table<K,V>;
 	var index : V;
+}
+
+@:multiReturn
+extern class LoadResult {
+	var func : Function;
+	var message : String;
 }
