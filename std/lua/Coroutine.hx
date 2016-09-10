@@ -64,7 +64,7 @@ extern class Coroutine<T:Function> extends Thread {
 		The coroutine cannot be running a C function, a metamethod, or an iterator.
 		Any arguments to `yield` are passed as extra results to `resume`.
 	**/
-	public static function yield(args : Rest<Dynamic>) : CoroutineYield;
+	public static function yield(args : Rest<Dynamic>) : Dynamic;
 
 	/**
 		Creates a new coroutine, with body `f`.
@@ -108,23 +108,9 @@ abstract CoroutineState(String) {
 @:multiReturn
 extern class CoroutineResume  {
 	var success  : Bool;
-	var result_1 : Dynamic;
-	var result_2 : Dynamic;
-	var result_3 : Dynamic;
-	var result_4 : Dynamic;
-	var result_5 : Dynamic;
-	var result_6 : Dynamic;
+	var result : Dynamic;
 }
 
-@:multiReturn
-extern class CoroutineYield  {
-	var result_1 : Dynamic;
-	var result_2 : Dynamic;
-	var result_3 : Dynamic;
-	var result_4 : Dynamic;
-	var result_5 : Dynamic;
-	var result_6 : Dynamic;
-}
 
 @:multiReturn
 extern class CoroutineRunning {
