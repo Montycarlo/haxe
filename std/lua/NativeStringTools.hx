@@ -29,7 +29,7 @@ extern class NativeStringTools {
 		with length `end`, and `sub(str, -end)` returns a suffix of `str` with 
 		length `start`.
 	**/
-	public static function sub(str : String, start : Int, ?end : Int): String;
+	public static function sub(str : String, start : Int, ?end : Int): StringSub;
 
 	/**
 		Returns the character code at position `index` of `str`.
@@ -130,4 +130,9 @@ extern class NativeStringTools {
 @:multiReturn extern class StringFind {
 	var begin : Int;
 	var end : Int;
+}
+
+@:multiReturn extern class StringSub {
+	var match : String;
+	var count : Int;
 }
