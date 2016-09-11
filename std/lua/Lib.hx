@@ -64,7 +64,7 @@ class Lib {
 		return untyped __define_feature__("use._hx_tbl_pack", _hx_tbl_pack(args));
 	}
 	public inline static function unpack(arg:Table<Dynamic,Dynamic>, ?min:Int, ?max:Int) : Dynamic {
-		return untyped __define_feature__("use._hx_tbl_unpack", _hx_tbl_unpack(arg));
+		return untyped __define_feature__("use._hx_tbl_unpack", _hx_tbl_unpack(arg, min, max));
 	}
 
 	public static function fillArray<T>(itr:Void->T) : Array<T> {
