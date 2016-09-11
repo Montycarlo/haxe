@@ -23,8 +23,6 @@ extern class Table<A,B> implements ArrayAccess<B> implements Dynamic<B> {
 	@:overload(function<B>(table:Table<Int,B>):Void{})
 	public static function remove<B>(table:Table<Int,B>, ?pos:Int) : Void;
 
-	public static function pack<T>(args:T) : Table<Int,T>;
-	public static function unpack(arg:Table<Dynamic,Dynamic>, ?min:Int, ?max:Int) : Dynamic;
 }
 
 typedef AnyTable = Table<Dynamic, Dynamic>;

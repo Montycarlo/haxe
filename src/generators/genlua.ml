@@ -39,6 +39,7 @@ type ctx = {
 	mutable in_loop : bool;
 	mutable iife_assign : bool;
 	mutable handle_break : bool;
+	mutable handle_continue : bool;
 	mutable id_counter : int;
 	mutable type_accessor : module_type -> string;
 	mutable separator : bool;
@@ -547,10 +548,15 @@ and gen_expr ?(local=true) ctx e = begin
 	| TReturn eo -> gen_return ctx e eo;
 	| TBreak ->
 		if not ctx.in_loop then unsupported e.epos;
-		if ctx.handle_break then spr ctx "_G.error(\"_hx__break__\")" else spr ctx "break" (*todo*)
+		if ctx.handle_break then
+		    spr ctx "_G.error(\"_hx__break__\")"
+		else if ctx.handle_continue then
+		    spr ctx "_hx_break = true; break"
+		else
+		    spr ctx "break" (*todo*)
 	| TContinue ->
 		if not ctx.in_loop then unsupported e.epos;
-		spr ctx "goto _hx_continue";
+		spr ctx "do break end";
 	| TBlock el ->
 		let bend = open_block ctx in
 		List.iter (gen_block_element ctx) el;
@@ -744,38 +750,48 @@ and gen_expr ?(local=true) ctx e = begin
 		spr ctx (Ast.s_unop op)
 	| TWhile (cond,e,Ast.NormalWhile) ->
 		let handle_break = handle_break ctx e in
+		let old_handle_continue = ctx.handle_continue in
+		ctx.handle_continue <- has_continue e;
+		if ctx.handle_continue then
+		    println ctx "local _hx_break = false; ";
 		spr ctx "while ";
 		gen_cond ctx cond;
 		spr ctx " do ";
+		if ctx.handle_continue then begin
+		    spr ctx "repeat"
+		end;
 		let b = open_block ctx in
 		gen_block_element ctx e;
 		b();
-		if has_continue e then begin
-		    newline ctx;
-		    spr ctx "::_hx_continue::";
-		end;
 		newline ctx;
 		handle_break();
 		newline ctx;
+		if ctx.handle_continue then begin
+		    newline ctx;
+		    println ctx "until true";
+		    println ctx "if _hx_break then break end";
+
+		end;
 		spr ctx "end";
+		ctx.handle_continue <- old_handle_continue;
 	| TWhile (cond,e,Ast.DoWhile) ->
 		let handle_break = handle_break ctx e in
-		spr ctx "while true do ";
+		let tmp = temp ctx in
+		println ctx "while true do ";
 		gen_block_element ctx e;
 		newline ctx;
+		if has_continue e then
+		    println ctx "local _hx_break = false";
 		spr ctx " while ";
 		gen_cond ctx cond;
-		spr ctx " do ";
+		spr ctx " do repeat";
 		gen_block_element ctx e;
 		handle_break();
 		newline ctx;
-		if has_continue e then begin
-		    newline ctx;
-		    spr ctx "::_hx_continue::";
-		end;
-		newline ctx;
+		println ctx "until true";
+		if has_continue e then
+		    println ctx "if _hx_break break end";
 		println ctx "end";
-		spr ctx "break end";
 	| TObjectDecl [] ->
 		spr ctx "_hx_e()";
 		ctx.separator <- true
@@ -1753,6 +1769,7 @@ let alloc_ctx com =
 		iife_assign = false;
 		in_loop = false;
 		handle_break = false;
+		handle_continue = false;
 		id_counter = 0;
 		type_accessor = (fun _ -> assert false);
 		separator = false;
@@ -1919,11 +1936,10 @@ let generate com =
 	List.iter (generate_type_forward ctx) com.types; newline ctx;
 
 	(* Generate some dummy placeholders for utility libs that may be required*)
-	println ctx "local _hx_bind, _hx_bit, _hx_staticToInstance, _hx_funcToField, _hx_maxn, _hx_print, _hx_apply_self, _hx_box_mr, _hx_tbl_pack";
+	println ctx "local _hx_bind, _hx_bit, _hx_staticToInstance, _hx_funcToField, _hx_maxn, _hx_print, _hx_apply_self, _hx_box_mr, _hx_tbl_pack, _hx_tbl_unpack";
 
 	if has_feature ctx "use._bitop" || has_feature ctx "lua.Boot.clamp" then begin
-	    println ctx "pcall(require, 'bit32') pcall(require, 'bit')";
-	    println ctx "local _hx_bit_raw = bit or bit32";
+	    println ctx "local _hx_bit_raw = require 'bit32'";
 	    println ctx "local function _hx_bit_clamp(v) return _hx_bit_raw.band(v, 2147483647 ) - _hx_bit_raw.band(v, 2147483648) end";
 	    println ctx "if type(jit) == 'table' then";
 	    println ctx "_hx_bit = setmetatable({},{__index = function(t,k) return function(...) return _hx_bit_clamp(rawget(_hx_bit_raw,k)(...)) end end})";
@@ -2058,8 +2074,20 @@ let generate com =
 	end;
 
 	if has_feature ctx "use._hx_tbl_pack" then begin
-	    println ctx "_hx_tbl_pack = function(...)";
-	    println ctx "  return {n=select('#',...),...}";
+	    println ctx "if _G.table.pack then";
+	    println ctx "  _hx_tbl_pack = _G.table.pack";
+	    println ctx "else";
+	    println ctx "  _hx_tbl_pack = function(...)";
+	    println ctx "    return {..., n =select('#',...)}";
+	    println ctx "  end";
+	    println ctx "end";
+	end;
+
+	if has_feature ctx "use._hx_tbl_unpack" then begin
+	    println ctx "if _G.table.unpack then";
+	    println ctx " _hx_tbl_unpack = _G.table.unpack";
+	    println ctx "else";
+	    println ctx " _hx_tbl_unpack = _G.unpack";
 	    println ctx "end";
 	end;
 

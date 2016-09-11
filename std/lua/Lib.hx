@@ -60,6 +60,12 @@ class Lib {
 	public inline static function defArray<T>(tab: Table<Int,T>, length : Int) : Array<T> {
 		return Boot.defArray(tab, length);
 	}
+	public inline static function pack<T>(args:T) : Table<Int,T>  {
+		return untyped __define_feature__("use._hx_tbl_pack", _hx_tbl_pack(args));
+	}
+	public inline static function unpack(arg:Table<Dynamic,Dynamic>, ?min:Int, ?max:Int) : Dynamic {
+		return untyped __define_feature__("use._hx_tbl_unpack", _hx_tbl_unpack(arg));
+	}
 
 	public static function fillArray<T>(itr:Void->T) : Array<T> {
 		var i: T = null;
