@@ -71,6 +71,23 @@ let dot_path = Ast.s_type_path
 
 let s_path ctx = dot_path
 
+(* Lua requires decimal encoding for characters, rather than the hex *)
+(* provided by Ast.s_escape *)
+let s_escape_lua ?(dec=true) s =
+	let b = Buffer.create (String.length s) in
+	for i = 0 to (String.length s) - 1 do
+		match s.[i] with
+		| '\n' -> Buffer.add_string b "\\n"
+		| '\t' -> Buffer.add_string b "\\t"
+		| '\r' -> Buffer.add_string b "\\r"
+		| '"' -> Buffer.add_string b "\\\""
+		| '\\' -> Buffer.add_string b "\\\\"
+		| c when int_of_char c < 32 && dec ->
+			Buffer.add_string b (Printf.sprintf "\\%.3d" (int_of_char c))
+		| c -> Buffer.add_char b c
+	done;
+	Buffer.contents b
+
 (* TODO: are all these kwds necessary for field quotes *and* id escapes? *)
 let kwds =
 	let h = Hashtbl.create 0 in
@@ -98,7 +115,7 @@ let valid_lua_ident s =
 let field s = if Hashtbl.mem kwds s || not (valid_lua_ident s) then "[\"" ^ s ^ "\"]" else "." ^ s
 let ident s = if Hashtbl.mem kwds s then "_" ^ s else s
 
-let anon_field s = if Hashtbl.mem kwds s || not (valid_lua_ident s) then "['" ^ (Ast.s_escape s) ^ "']" else s
+let anon_field s = if Hashtbl.mem kwds s || not (valid_lua_ident s) then "['" ^ (s_escape_lua s) ^ "']" else s
 let static_field c s =
 	match s with
 	| "length" | "name" when not c.cl_extern || Meta.has Meta.HxGen c.cl_meta-> "._hx" ^ s
@@ -314,7 +331,7 @@ let gen_constant ctx p = function
 	| TFloat s -> spr ctx s
 	| TString s -> begin
 	    add_feature ctx "use.string";
-	    print ctx "\"%s\"" (Ast.s_escape s)
+	    print ctx "\"%s\"" (s_escape_lua s)
 	end
 	| TBool b -> spr ctx (if b then "true" else "false")
 	| TNull -> spr ctx "nil"
@@ -1490,7 +1507,7 @@ let generate_class___name__ ctx c =
 		let p = s_path ctx c.cl_path in
 		print ctx "%s.__name__ = " p;
 		if has_feature ctx "Type.getClassName" then
-			println ctx "{%s}" (String.concat "," (List.map (fun s -> Printf.sprintf "\"%s\"" (Ast.s_escape s)) (fst c.cl_path @ [snd c.cl_path])))
+			println ctx "{%s}" (String.concat "," (List.map (fun s -> Printf.sprintf "\"%s\"" (s_escape_lua s)) (fst c.cl_path @ [snd c.cl_path])))
 		else
 			println ctx "true";
 	end
@@ -1610,7 +1627,7 @@ let generate_class ctx c =
 
 let generate_enum ctx e =
 	let p = s_path ctx e.e_path in
-	let ename = List.map (fun s -> Printf.sprintf "\"%s\"" (Ast.s_escape s)) (fst e.e_path @ [snd e.e_path]) in
+	let ename = List.map (fun s -> Printf.sprintf "\"%s\"" (s_escape_lua s)) (fst e.e_path @ [snd e.e_path]) in
 
 	(* TODO: Unify the _hxClasses declaration *)
 	if has_feature ctx "Type.resolveEnum" then begin
@@ -2096,4 +2113,5 @@ let generate com =
 	output_string ch (Buffer.contents ctx.buf);
 	close_out ch;
 	t()
+
 
