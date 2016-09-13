@@ -259,7 +259,7 @@ let mk_mr_box ctx e =
 	in
 	add_feature ctx "use._hx_box_mr";
 	add_feature ctx "use._hx_tbl_pack";
-	let code = Printf.sprintf "_hx_box_mr(_hx_tbl_pack({0}), {%s})" s_fields in
+	let code = Printf.sprintf "_hx_box_mr(_G.table.pack({0}), {%s})" s_fields in
 	mk_lua_code ctx.com code [e] e.etype e.epos
 
 (* create a multi-return select call for given expr and field name *)
@@ -776,7 +776,6 @@ and gen_expr ?(local=true) ctx e = begin
 		ctx.handle_continue <- old_handle_continue;
 	| TWhile (cond,e,Ast.DoWhile) ->
 		let handle_break = handle_break ctx e in
-		let tmp = temp ctx in
 		println ctx "while true do ";
 		gen_block_element ctx e;
 		newline ctx;
@@ -1936,7 +1935,7 @@ let generate com =
 	List.iter (generate_type_forward ctx) com.types; newline ctx;
 
 	(* Generate some dummy placeholders for utility libs that may be required*)
-	println ctx "local _hx_bind, _hx_bit, _hx_staticToInstance, _hx_funcToField, _hx_maxn, _hx_print, _hx_apply_self, _hx_box_mr, _hx_tbl_pack, _hx_tbl_unpack";
+	println ctx "local _hx_bind, _hx_bit, _hx_staticToInstance, _hx_funcToField, _hx_maxn, _hx_print, _hx_apply_self, _hx_box_mr";
 
 	if has_feature ctx "use._bitop" || has_feature ctx "lua.Boot.clamp" then begin
 	    println ctx "local _hx_bit_raw = require 'bit32'";
@@ -2073,23 +2072,16 @@ let generate com =
 	    println ctx "end";
 	end;
 
-	if has_feature ctx "use._hx_tbl_pack" then begin
-	    println ctx "if _G.table.pack then";
-	    println ctx "  _hx_tbl_pack = _G.table.pack";
-	    println ctx "else";
-	    println ctx "  _hx_tbl_pack = function(...)";
-	    println ctx "    return {..., n =select('#',...)}";
+	(* if has_feature ctx "use.table" then begin *)
+	    println ctx "if not _G.table.pack then";
+	    println ctx "  _G.table.pack = function(...)";
+	    println ctx "    return {...}";
 	    println ctx "  end";
 	    println ctx "end";
-	end;
-
-	if has_feature ctx "use._hx_tbl_unpack" then begin
-	    println ctx "if _G.table.unpack then";
-	    println ctx " _hx_tbl_unpack = _G.table.unpack";
-	    println ctx "else";
-	    println ctx " _hx_tbl_unpack = _G.unpack";
+	    println ctx "if not _G.table.unpack then";
+	    println ctx " _G.table.unpack = _G.unpack";
 	    println ctx "end";
-	end;
+	(* end; *)
 
 
 	List.iter (generate_enumMeta_fields ctx) com.types;

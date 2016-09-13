@@ -48,7 +48,7 @@ class Sys {
 	}
 	public static function command( cmd : String, ?args : Array<String> ) : Int  {
 		cmd = Boot.shellEscapeCmd(cmd, args);
-		return cast lua.Lib.pack(Os.execute(cmd))[3];
+		return Os.execute(cmd).status;
 	}
 
 
