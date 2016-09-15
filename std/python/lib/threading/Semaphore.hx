@@ -21,21 +21,9 @@
  */
 package python.lib.threading;
 
-private typedef Callable = Dynamic->Dynamic;
-
-@:pythonImport("threading", "Thread")
-extern class Thread {
-	public var name:Null<String>;
-	public var ident(default, null):Null<Int>;
-	@:native("is_alive") public var isAlive(default, null):Bool;
-	public var daemon:Bool;
-
-	public function new(?group:Dynamic, ?target:Callable, ?name:String, ?args:Tuple<Dynamic>, ?kwargs:Map<String, Dynamic>, ?daemon:Bool);
-	public function start():Void;
-	public function run():Void;
-	public function join(?timeout:Int):Void;
-	public function isDaemon():Bool;
-	public function setDaemon(daemonic:Bool):Void;
-	public function getName():Null<String>;
-	public function setName(name:String):Void;
+@:pythonImport("threading", "Semaphore")
+extern class Semaphore{
+	public function new(value:Int);
+	public function acquire(?blocking:Bool, ?timeout:Int):Bool;
+	public function release():Void;
 }
