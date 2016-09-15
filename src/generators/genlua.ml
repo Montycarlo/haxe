@@ -573,7 +573,7 @@ and gen_expr ?(local=true) ctx e = begin
 		    spr ctx "break" (*todo*)
 	| TContinue ->
 		if not ctx.in_loop then unsupported e.epos;
-		spr ctx "do break end";
+		spr ctx "break";
 	| TBlock el ->
 		let bend = open_block ctx in
 		List.iter (gen_block_element ctx) el;
@@ -666,7 +666,8 @@ and gen_expr ?(local=true) ctx e = begin
 		end
 	| TNew (c,_,el) ->
 		(match c.cl_constructor with
-		| Some cf when Meta.has Meta.SelfCall cf.cf_meta -> ()
+		| Some cf when Meta.has Meta.SelfCall cf.cf_meta ->
+			print ctx "%s" (ctx.type_accessor (TClassDecl c));
 		| _ -> print ctx "%s.new" (ctx.type_accessor (TClassDecl c)));
 		spr ctx "(";
 		concat ctx "," (gen_value ctx) el;
@@ -767,47 +768,58 @@ and gen_expr ?(local=true) ctx e = begin
 		spr ctx (Ast.s_unop op)
 	| TWhile (cond,e,Ast.NormalWhile) ->
 		let handle_break = handle_break ctx e in
-		let old_handle_continue = ctx.handle_continue in
-		ctx.handle_continue <- has_continue e;
-		if ctx.handle_continue then
-		    println ctx "local _hx_break = false; ";
+		let has_continue = has_continue e in
+		let old_ctx_continue = ctx.handle_continue in
+		ctx.handle_continue <- has_continue;
 		spr ctx "while ";
 		gen_cond ctx cond;
-		spr ctx " do ";
-		if ctx.handle_continue then begin
-		    spr ctx "repeat"
-		end;
 		let b = open_block ctx in
+		println ctx " do ";
+		let b2 = open_block ctx in
+		if has_continue then begin
+		    spr ctx "repeat "
+		end;
 		gen_block_element ctx e;
-		b();
 		newline ctx;
 		handle_break();
-		newline ctx;
-		if ctx.handle_continue then begin
+		if has_continue then begin
+		    b2();
 		    newline ctx;
 		    println ctx "until true";
-		    println ctx "if _hx_break then break end";
-
+		    print ctx "if _hx_break then _hx_break = false; break; end";
 		end;
+		b();
+		newline ctx;
 		spr ctx "end";
-		ctx.handle_continue <- old_handle_continue;
+		ctx.handle_continue <- old_ctx_continue;
 	| TWhile (cond,e,Ast.DoWhile) ->
 		let handle_break = handle_break ctx e in
+		let has_continue = has_continue e in
+		let old_ctx_continue = ctx.handle_continue in
+		ctx.handle_continue <- has_continue;
 		println ctx "while true do ";
 		gen_block_element ctx e;
 		newline ctx;
-		if has_continue e then
-		    println ctx "local _hx_break = false";
 		spr ctx " while ";
 		gen_cond ctx cond;
-		spr ctx " do repeat";
+		let b = open_block ctx in
+		println ctx " do ";
+		let b2 = open_block ctx in
+		if has_continue then begin
+		    spr ctx "repeat "
+		end;
 		gen_block_element ctx e;
 		handle_break();
+		if has_continue then begin
+		    b2();
+		    newline ctx;
+		    println ctx "until true";
+		    print ctx "if _hx_break then _hx_break = false; break; end";
+		end;
+		b();
 		newline ctx;
-		println ctx "until true";
-		if has_continue e then
-		    println ctx "if _hx_break break end";
-		println ctx "end";
+		spr ctx "end";
+		ctx.handle_continue <- old_ctx_continue;
 	| TObjectDecl [] ->
 		spr ctx "_hx_e()";
 		ctx.separator <- true
@@ -1952,7 +1964,7 @@ let generate com =
 	List.iter (generate_type_forward ctx) com.types; newline ctx;
 
 	(* Generate some dummy placeholders for utility libs that may be required*)
-	println ctx "local _hx_bind, _hx_bit, _hx_staticToInstance, _hx_funcToField, _hx_maxn, _hx_print, _hx_apply_self, _hx_box_mr";
+	println ctx "local _hx_bind, _hx_bit, _hx_staticToInstance, _hx_funcToField, _hx_maxn, _hx_print, _hx_apply_self, _hx_box_mr, _hx_break = false";
 
 	if has_feature ctx "use._bitop" || has_feature ctx "lua.Boot.clamp" then begin
 	    println ctx "local _hx_bit_raw = require 'bit32'";
